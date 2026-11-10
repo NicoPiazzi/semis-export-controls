@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chips under control: semiconductor stocks and export controls, 2019-2026</title>
+<meta name="description" content="Event study of how semiconductor stocks react to export-control announcements by the US, the Netherlands, Japan and China.">
+<style>
+:root {
+  color-scheme: light;
+  --bg: #ffffff; --surface-1: #fcfcfb; --surface-2: #f4f3f0; --border: #e3e2dd;
+  --text-primary: #0b0b0b; --text-secondary: #52514e; --text-muted: #7a7974;
+  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100; --s5: #8a8984;
+  --neg: #e34948; --pos: #2a78d6; --mid: #f0efec; --accent: #2a78d6;
+  --grid: #e9e8e4;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --bg: #111110; --surface-1: #1a1a19; --surface-2: #232321; --border: #33332f;
+    --text-primary: #f0efec; --text-secondary: #c3c2b7; --text-muted: #94938b;
+    --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #8a8984;
+    --neg: #e66767; --pos: #3987e5; --mid: #383835; --accent: #3987e5;
+    --grid: #2b2b28;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text-primary);
+  font: 15px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif; }
+main { max-width: 1120px; margin: 0 auto; padding: 32px 20px 64px; }
+h1 { font-size: 28px; line-height: 1.25; font-weight: 600; margin: 0 0 8px; }
+h2 { font-size: 19px; font-weight: 600; margin: 0 0 4px; }
+h3 { font-size: 15px; font-weight: 600; margin: 0 0 4px; }
+p { margin: 0 0 10px; }
+a { color: var(--accent); }
+.lede { color: var(--text-secondary); max-width: 780px; font-size: 16px; }
+.muted { color: var(--text-muted); font-size: 13px; }
+section { margin-top: 36px; }
+.card { background: var(--surface-1); border: 1px solid var(--border); border-radius: 12px; padding: 18px 20px; }
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; margin-top: 22px; }
+.kpi .num { font-size: 30px; font-weight: 600; letter-spacing: -0.5px; }
+.kpi .lab { color: var(--text-secondary); font-size: 14px; }
+.kpi .sig { font-size: 12px; color: var(--text-muted); }
+.row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 10px 0; }
+.seg button { font: inherit; font-size: 13px; padding: 5px 11px; border: 1px solid var(--border);
+  background: var(--surface-1); color: var(--text-secondary); cursor: pointer; }
+.seg button:first-child { border-radius: 8px 0 0 8px; } .seg button:last-child { border-radius: 0 8px 8px 0; }
+.seg button + button { border-left: none; }
+.seg button[aria-pressed="true"] { background: var(--text-primary); color: var(--bg); border-color: var(--text-primary); }
+.legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 13px; color: var(--text-secondary); }
+.legend span::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 2px;
+  background: var(--c); margin-right: 6px; vertical-align: -1px; }
+.chart { position: relative; }
+.chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+.tip { position: absolute; pointer-events: none; background: var(--surface-1); border: 1px solid var(--border);
+  border-radius: 8px; padding: 8px 10px; font-size: 12.5px; line-height: 1.45; box-shadow: 0 2px 10px rgba(0,0,0,.08);
+  opacity: 0; transition: opacity .1s; z-index: 5; min-width: 150px; }
+.tip b { font-weight: 600; }
+svg text { fill: var(--text-secondary); font-size: 12px; }
+svg .axis line, svg .axis path { stroke: var(--grid); }
+.grid2 { display: grid; grid-template-columns: 1.15fr 1fr; gap: 18px; }
+@media (max-width: 860px) { .grid2 { grid-template-columns: 1fr; } }
+.evhead .tag { display: inline-block; font-size: 12px; padding: 1px 8px; border-radius: 10px;
+  background: var(--surface-2); color: var(--text-secondary); margin-right: 6px; }
+.evhead .tag.warn { background: #fde8d9; color: #8a3a12; }
+@media (prefers-color-scheme: dark) { .evhead .tag.warn { background: #4a2a1a; color: #f4c3a8; } }
+table { border-collapse: collapse; width: 100%; font-size: 13px; }
+th, td { padding: 6px 8px; text-align: right; border-bottom: 1px solid var(--border); white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; }
+th { color: var(--text-secondary); font-weight: 600; }
+.heat th { white-space: normal; text-align: center; font-size: 12px; vertical-align: bottom; }
+.heat td { padding: 5px 4px; }
+.heat td:first-child { padding-right: 10px; }
+.heat td.v { min-width: 46px; text-align: center; font-variant-numeric: tabular-nums; border: 2px solid var(--surface-1); }
+.heat tr.ev { cursor: pointer; }
+.heat tr.ev:hover td:first-child { color: var(--accent); }
+.heat tr.sel td:first-child { font-weight: 600; color: var(--accent); }
+.heat tr.conf td:first-child { color: var(--text-muted); }
+.heat .gh th { text-align: center; color: var(--text-primary); border-bottom: none; }
+.scroll { overflow-x: auto; }
+.p-sig { font-weight: 600; }
+footer { margin-top: 48px; color: var(--text-muted); font-size: 13px; border-top: 1px solid var(--border); padding-top: 16px; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <p class="muted">Event study · 23 announcements · 11 stocks · 2019-2026</p>
+    <h1>Chips under control: how semiconductor stocks react to export controls</h1>
+    <p class="lede">Since 2019 the US, the Netherlands, Japan and China have used export controls as a weapon in the chip race.
+      This project measures how the stock market prices each announcement, separating the reaction to the news
+      from the movement of the whole market, and asks whether investors punish the whole sector or only the part
+      of the supply chain that each rule targets.</p>
+    <div class="kpis" id="kpis"></div>
+  </header>
+
+  <section>
+    <h2>1. Timeline of the announcements</h2>
+    <p class="muted">Above the line: new restrictions. Below: restrictions lifted or suspended. Click an announcement to see how each stock reacted.</p>
+    <div class="card"><div class="chart" id="timeline"></div><div class="legend" id="tl-legend" style="margin-top:6px"></div></div>
+  </section>
+
+  <section>
+    <h2>2. Reaction to a single announcement</h2>
+    <div class="card">
+      <div class="evhead" id="evhead"></div>
+      <div class="row">
+        <span class="muted">Window</span>
+        <div class="seg" id="winseg"></div>
+      </div>
+      <div class="grid2">
+        <div>
+          <h3>Abnormal return by company</h3>
+          <p class="muted">Return beyond what the market model predicted. Bold label: significant at 5%.</p>
+          <div class="chart" id="bars"></div>
+        </div>
+        <div>
+          <h3>Day by day, average of each group</h3>
+          <p class="muted">Cumulative abnormal return from 10 trading days before to 10 after.</p>
+          <div class="chart" id="evpath"></div>
+          <div class="legend" id="gl1" style="margin-top:6px"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>3. The average reaction across announcements</h2>
+    <p class="muted">Average cumulative abnormal return of each group around a typical tightening announcement. Band: 95% confidence interval.</p>
+    <div class="card">
+      <div class="row"><div class="seg" id="sampseg"></div></div>
+      <div class="chart" id="avgpath"></div>
+      <div class="legend" id="gl2" style="margin-top:6px"></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>4. All announcements and all stocks at once</h2>
+    <p class="muted">Abnormal return over the announcement day and the next, in %. Red: fell more than the market model predicted; blue: rose more.
+      Grey labels mark announcements that coincided with major unrelated news. Click a row to open it above.</p>
+    <div class="card scroll"><table class="heat" id="heat"></table></div>
+  </section>
+
+  <section>
+    <h2>5. Do the results survive other choices?</h2>
+    <p class="muted">Each row repeats the analysis changing one methodological choice. Mean in %, p-value in brackets; bold = significant at 5%.</p>
+    <div class="card scroll"><table id="rob"></table></div>
+  </section>
+
+  <section>
+    <h2>6. Method in brief</h2>
+    <div class="card">
+      <p><b>Market model.</b> For each stock and announcement I estimate how the stock normally moves with its home market
+        (alpha and beta) on 250 trading days ending 11 days before the news, leaving out the days around other announcements.
+        The abnormal return is the actual return minus the return the model predicts; summing it over a window gives the
+        cumulative abnormal return (CAR).</p>
+      <p><b>Day 0 by exchange.</b> Each announcement is timed in its own time zone; day 0 is the first session of each
+        stock's exchange that closes after the news. The main window, the announcement day plus the next, is robust when
+        the exact time is unknown.</p>
+      <p><b>Tests.</b> All stocks react on the same day to the same news, so they are not independent observations. Stocks are
+        first averaged within each group for each announcement, then tested across announcements (t-test and Wilcoxon).</p>
+      <p><b>Limits.</b> Few events (14-16), several tests, and a model that misbehaves on market-crash days (see April 2025).
+        Results are associations around announcement dates, not proof of causality.</p>
+      <p class="muted">Data: daily prices from Yahoo Finance. Announcements, sources and timing notes: <code>data/events.csv</code> in the repository.</p>
+    </div>
+  </section>
+
+  <footer>
+    <span id="gen"></span> · Code, data and full methodology on
+    <a href="https://github.com/NicoPiazzi/semis-export-controls">GitHub</a>.
+  </footer>
+</main>
+<div class="tip" id="tip"></div>
+
+<script src="data.js"></script>
+<script>
+const D = window.DASH;
+const GROUPS = D.groups;
+const GC = { equipment: "var(--s1)", manufacturer: "var(--s2)", designer: "var(--s3)" };
+const GLAB = { equipment: "Equipment makers", manufacturer: "Chip manufacturers", designer: "Chip designers" };
+const CC = { US: "var(--s1)", NL: "var(--s2)", JP: "var(--s3)", CN: "var(--s4)", "US/CN": "var(--s5)" };
+const CLAB = { US: "United States", NL: "Netherlands", JP: "Japan", CN: "China", "US/CN": "US-China deal" };
+const WINDOWS = ["CAR[0,+1]", "CAR[-1,+1]", "CAR[0,+5]", "CAR[-5,-1]"];
+const WLAB = { "CAR[0,+1]": "Day 0 to +1", "CAR[-1,+1]": "Day -1 to +1", "CAR[0,+5]": "Day 0 to +5", "CAR[-5,-1]": "5 days before" };
+const NS = "http://www.w3.org/2000/svg";
+const tip = document.getElementById("tip");
+const pct = (v, d = 1) => v == null ? "n/a" : (v >= 0 ? "+" : "") + (v * 100).toFixed(d) + "%";
+const fmtp = p => p == null ? "" : p < 0.001 ? "<0.001" : p.toFixed(3);
+const css = v => getComputedStyle(document.documentElement).getPropertyValue(v.replace(/var\((.*)\)/, "$1")).trim();
+let state = { ev: "E05", win: "CAR[0,+1]", samp: "clean" };
+
+function el(tag, attrs = {}, parent) {
+  const e = document.createElementNS(NS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  if (parent) parent.appendChild(e);
+  return e;
+}
+function showTip(html, evt, host) {
+  tip.innerHTML = html; tip.style.opacity = 1;
+  const x = evt.pageX + 14, y = evt.pageY + 14, w = tip.offsetWidth;
+  tip.style.left = Math.min(x, window.scrollX + document.documentElement.clientWidth - w - 10) + "px";
+  tip.style.top = y + "px";
+}
+function hideTip() { tip.style.opacity = 0; }
+function legend(id, items) {
+  document.getElementById(id).innerHTML = items.map(([c, t]) => `<span style="--c:${c}">${t}</span>`).join("");
+}
+
+/* ---------- KPI tiles ---------- */
+function kpis() {
+  const t = D.targeting["CAR[0,+1]"], g = D.group_tests["main excl. confounded"];
+  const tiles = [
+    [pct(t.targeted) + " vs " + pct(t.others), "Targeted segment vs the other two, announcement day + next",
+     `difference ${pct(t.diff)} · p = ${fmtp(t.p)} · ${t.n} announcements`],
+    [pct(g.designer.mean), "Chip designers (Nvidia, AMD) after a new restriction",
+     `p = ${fmtp(g.designer.p)} · ${g.designer.n} announcements, excl. confounded`],
+    [pct(g.manufacturer.mean), "Chip manufacturers (TSMC, Samsung, SK Hynix, SMIC)",
+     `p = ${fmtp(g.manufacturer.p)} · not significant: they barely react`],
+  ];
+  document.getElementById("kpis").innerHTML = tiles.map(([n, l, s]) =>
+    `<div class="card kpi"><div class="num">${n}</div><div class="lab">${l}</div><div class="sig">${s}</div></div>`).join("");
+}
+
+/* ---------- 1. Timeline ---------- */
+function timeline() {
+  const host = document.getElementById("timeline"); host.innerHTML = "";
+  const W = host.clientWidth || 900, H = 230, m = { l: 20, r: 20 }, y0 = 125;
+  const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": "Timeline of export-control announcements" }, host);
+  const t0 = new Date("2019-01-01"), t1 = new Date("2026-06-30");
+  const x = d => m.l + (new Date(d) - t0) / (t1 - t0) * (W - m.l - m.r);
+  el("line", { x1: m.l, x2: W - m.r, y1: y0, y2: y0, stroke: css("var(--border)"), "stroke-width": 1.5 }, svg);
+  for (let y = 2019; y <= 2026; y++) {
+    const xx = x(`${y}-01-01`);
+    el("line", { x1: xx, x2: xx, y1: y0 - 4, y2: y0 + 4, stroke: css("var(--text-muted)") }, svg);
+    const t = el("text", { x: xx + 3, y: y0 + 18 }, svg); t.textContent = y;
+  }
+  const lanes = { up: [], down: [] }, R = 11, gap = 2 * R + 4;
+  const evs = [...D.events].sort((a, b) => a.date.localeCompare(b.date));
+  evs.forEach(e => {
+    const dir = e.direction === "loosening" ? "down" : "up", xx = x(e.date);
+    let lane = 0; while (lanes[dir][lane] != null && xx - lanes[dir][lane] < gap) lane++;
+    lanes[dir][lane] = xx;
+    const yy = dir === "up" ? y0 - 28 - lane * gap : y0 + 40 + lane * gap;
+    el("line", { x1: xx, x2: xx, y1: y0, y2: yy + (dir === "up" ? R : -R), stroke: css("var(--border)") }, svg);
+    const g = el("g", { tabindex: 0, role: "button", "aria-label": `${e.date} ${e.short}`, style: "cursor:pointer" }, svg);
+    const sel = e.id === state.ev;
+    el("circle", { cx: xx, cy: yy, r: sel ? R + 2 : R, fill: css(CC[e.country]),
+      stroke: sel ? css("var(--text-primary)") : css("var(--surface-1)"), "stroke-width": sel ? 2.5 : 2,
+      opacity: e.confounded ? 0.55 : 1 }, g);
+    const lab = el("text", { x: xx, y: yy + 4, "text-anchor": "middle", style: "font-size:9px;font-weight:600;fill:#fff" }, g);
+    lab.textContent = e.country === "US/CN" ? "" : e.country;
+    const select = () => { state.ev = e.id; renderEvent(); timeline(); heat(); };
+    g.addEventListener("click", select);
+    g.addEventListener("keydown", k => { if (k.key === "Enter" || k.key === " ") { k.preventDefault(); select(); } });
+    g.addEventListener("mousemove", ev => showTip(`<b>${e.date}</b><br>${e.short}<br><span class="muted">${e.issuer}${e.confounded ? " · confounded" : ""}</span>`, ev));
+    g.addEventListener("mouseleave", hideTip);
+  });
+  const t1l = el("text", { x: m.l, y: 16 }, svg); t1l.textContent = "New restrictions";
+  const t2l = el("text", { x: m.l, y: H - 6 }, svg); t2l.textContent = "Restrictions lifted or suspended";
+}
+
+/* ---------- 2. Single event ---------- */
+function renderEvent() {
+  const e = D.events.find(v => v.id === state.ev);
+  const dirTag = e.direction === "loosening" ? "Lifted / suspended" : "New restriction";
+  const sampTag = { main: "Main sample", robustness: "Robustness sample", loosening: "Loosening sample" }[e.sample];
+  document.getElementById("evhead").innerHTML = `
+    <p class="muted" style="margin:0">${e.date} · ${CLAB[e.country]} · ${e.issuer}</p>
+    <h3 style="font-size:18px;margin:2px 0 6px">${e.title}</h3>
+    <p><span class="tag">${dirTag}</span><span class="tag">${sampTag}</span>
+      <span class="tag">Most exposed: ${e.target}</span>${e.confounded ? '<span class="tag warn">Confounded by unrelated news</span>' : ""}</p>
+    <p class="muted" style="margin-bottom:2px"><b>Timing:</b> ${e.timing}</p>
+    <p class="muted" style="margin-bottom:2px"><b>Other news nearby:</b> ${e.confounders}</p>
+    <p class="muted"><a href="${e.source}" target="_blank" rel="noopener">Primary source</a> ·
+      <a href="${e.source2}" target="_blank" rel="noopener">Secondary source</a></p>`;
+  bars(e); evPath(e);
+}
+
+function bars(e) {
+  const host = document.getElementById("bars"); host.innerHTML = "";
+  const data = D.companies.map(c => ({ ...c, v: (e.car[state.win] || {})[c.ticker] }))
+                          .filter(c => c.v && c.v[0] != null);
+  const W = host.clientWidth || 500, rowH = 24, m = { l: 128, r: 52, t: 6, b: 24 };
+  const H = m.t + m.b + data.length * rowH;
+  const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": "Abnormal return by company" }, host);
+  const ext = Math.max(0.04, ...data.map(d => Math.abs(d.v[0]))) * 1.35;  /* room for value labels */
+  const x = v => m.l + (v + ext) / (2 * ext) * (W - m.l - m.r);
+  [-ext, -ext / 2, 0, ext / 2, ext].forEach(v => {
+    el("line", { x1: x(v), x2: x(v), y1: m.t, y2: H - m.b, stroke: css(v === 0 ? "var(--text-muted)" : "var(--grid)") }, svg);
+    const t = el("text", { x: x(v), y: H - 6, "text-anchor": "middle" }, svg); t.textContent = pct(v, 0);
+  });
+  data.forEach((d, i) => {
+    const y = m.t + i * rowH, v = d.v[0], p = d.v[1];
+    const lab = el("text", { x: m.l - 8, y: y + rowH / 2 + 4, "text-anchor": "end",
+      style: p != null && p < 0.05 ? "font-weight:600;fill:" + css("var(--text-primary)") : "" }, svg);
+    lab.textContent = d.name;
+    const x0 = x(0), x1 = x(v), bw = Math.max(1, Math.abs(x1 - x0));
+    el("rect", { x: Math.min(x0, x1), y: y + 5, width: bw, height: rowH - 10, rx: 3, fill: css(GC[d.group]) }, svg);
+    const vt = el("text", { x: v >= 0 ? x1 + 4 : x1 - 4, y: y + rowH / 2 + 4, "text-anchor": v >= 0 ? "start" : "end" }, svg);
+    vt.textContent = pct(v);
+    const hit = el("rect", { x: 0, y, width: W, height: rowH, fill: "transparent" }, svg);
+    hit.addEventListener("mousemove", ev => showTip(`<b>${d.name}</b> · ${GLAB[d.group]}<br>${WLAB[state.win]}: <b>${pct(v, 2)}</b><br>p-value ${fmtp(p)}${p < 0.05 ? " (significant)" : ""}`, ev));
+    hit.addEventListener("mouseleave", hideTip);
+  });
+}
+
+function lineChart(hostId, series, opts) {
+  const host = document.getElementById(hostId); host.innerHTML = "";
+  const W = host.clientWidth || 500, H = opts.h || 260, m = { l: 44, r: 14, t: 10, b: 30 };
+  const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": opts.label }, host);
+  const days = Array.from({ length: 21 }, (_, i) => i - 10);
+  const vals = series.flatMap(s => [...s.y, ...(s.lo || []), ...(s.hi || [])]).filter(v => v != null);
+  let lo = Math.min(-0.01, ...vals), hi = Math.max(0.01, ...vals);
+  const pad = (hi - lo) * 0.08; lo -= pad; hi += pad;
+  const x = d => m.l + (d + 10) / 20 * (W - m.l - m.r);
+  const y = v => m.t + (hi - v) / (hi - lo) * (H - m.t - m.b);
+  const step = (hi - lo) > 0.12 ? 0.04 : (hi - lo) > 0.06 ? 0.02 : 0.01;
+  for (let v = Math.ceil(lo / step) * step; v <= hi; v += step) {
+    el("line", { x1: m.l, x2: W - m.r, y1: y(v), y2: y(v), stroke: css(Math.abs(v) < 1e-9 ? "var(--text-muted)" : "var(--grid)") }, svg);
+    const t = el("text", { x: m.l - 6, y: y(v) + 4, "text-anchor": "end" }, svg); t.textContent = (v * 100).toFixed(0) + "%";
+  }
+  [-10, -5, 0, 5, 10].forEach(d => { const t = el("text", { x: x(d), y: H - 8, "text-anchor": "middle" }, svg); t.textContent = d === 0 ? "day 0" : d; });
+  el("line", { x1: x(0), x2: x(0), y1: m.t, y2: H - m.b, stroke: css("var(--text-muted)"), "stroke-dasharray": "4 4" }, svg);
+  series.forEach(s => {
+    if (s.lo) {
+      const pts = days.map((d, i) => `${x(d)},${y(s.hi[i])}`).concat(days.slice().reverse().map((d, j) => `${x(d)},${y(s.lo[20 - j])}`));
+      el("polygon", { points: pts.join(" "), fill: css(s.c), opacity: 0.12 }, svg);
+    }
+  });
+  series.forEach(s => {
+    el("polyline", { points: days.map((d, i) => s.y[i] == null ? "" : `${x(d)},${y(s.y[i])}`).join(" "),
+      fill: "none", stroke: css(s.c), "stroke-width": 2, "stroke-linejoin": "round" }, svg);
+  });
+  const cross = el("line", { y1: m.t, y2: H - m.b, stroke: css("var(--text-muted)"), opacity: 0 }, svg);
+  const dots = series.map(s => el("circle", { r: 4, fill: css(s.c), stroke: css("var(--surface-1)"), "stroke-width": 2, opacity: 0 }, svg));
+  const hit = el("rect", { x: m.l, y: m.t, width: W - m.l - m.r, height: H - m.t - m.b, fill: "transparent" }, svg);
+  hit.addEventListener("mousemove", ev => {
+    const r = svg.getBoundingClientRect(), px = (ev.clientX - r.left) * W / r.width;
+    const i = Math.max(0, Math.min(20, Math.round((px - m.l) / (W - m.l - m.r) * 20)));
+    cross.setAttribute("x1", x(days[i])); cross.setAttribute("x2", x(days[i])); cross.setAttribute("opacity", 1);
+    dots.forEach((dt, k) => { const v = series[k].y[i]; if (v == null) return; dt.setAttribute("cx", x(days[i])); dt.setAttribute("cy", y(v)); dt.setAttribute("opacity", 1); });
+    showTip(`<b>Day ${days[i]}</b><br>` + series.map(s => `<span style="color:${css(s.c)}">■</span> ${s.name}: <b>${pct(s.y[i], 2)}</b>`).join("<br>"), ev);
+  });
+  hit.addEventListener("mouseleave", () => { hideTip(); cross.setAttribute("opacity", 0); dots.forEach(d => d.setAttribute("opacity", 0)); });
+}
+
+function evPath(e) {
+  lineChart("evpath", GROUPS.filter(g => e.path[g]).map(g => ({ name: GLAB[g], c: GC[g], y: e.path[g] })),
+            { label: "Cumulative abnormal return by group for the selected announcement", h: 270 });
+}
+
+function avgPath() {
+  const p = D.paths[state.samp];
+  lineChart("avgpath", GROUPS.map(g => ({ name: GLAB[g], c: GC[g], y: p[g].mean, lo: p[g].lo, hi: p[g].hi })),
+            { label: "Average cumulative abnormal return by group", h: 320 });
+}
+
+function segs() {
+  const ws = document.getElementById("winseg");
+  ws.innerHTML = WINDOWS.map(w => `<button aria-pressed="${w === state.win}" data-w="${w}">${WLAB[w]}</button>`).join("");
+  ws.querySelectorAll("button").forEach(b => b.onclick = () => { state.win = b.dataset.w; segs(); renderEvent(); });
+  const ss = document.getElementById("sampseg");
+  const opts = [["clean", `Excluding confounded (${D.n_events.clean} announcements)`], ["main", `All tightening (${D.n_events.main})`]];
+  ss.innerHTML = opts.map(([k, t]) => `<button aria-pressed="${k === state.samp}" data-s="${k}">${t}</button>`).join("");
+  ss.querySelectorAll("button").forEach(b => b.onclick = () => { state.samp = b.dataset.s; segs(); avgPath(); });
+}
+
+/* ---------- 4. Heatmap ---------- */
+function mix(a, b, t) {
+  const h = s => s.replace("#", "").match(/../g).map(v => parseInt(v, 16));
+  const A = h(a), B = h(b);
+  return "#" + A.map((v, i) => Math.round(v + (B[i] - v) * t).toString(16).padStart(2, "0")).join("");
+}
+function heatColor(v) {
+  const t = Math.min(1, Math.abs(v) / 0.06);
+  return { bg: mix(css("var(--mid)"), css(v < 0 ? "var(--neg)" : "var(--pos)"), t), fg: t > 0.6 ? "#fff" : css("var(--text-primary)") };
+}
+function heat() {
+  const tbl = document.getElementById("heat");
+  const cos = D.companies;
+  const counts = GROUPS.map(g => cos.filter(c => c.group === g).length);
+  let h = `<thead><tr class="gh"><th></th>${GROUPS.map((g, i) => `<th colspan="${counts[i]}" style="border-bottom:3px solid ${GC[g]}">${GLAB[g]}</th>`).join("")}</tr>
+    <tr><th>Announcement</th>${cos.map(c => `<th style="text-align:center">${c.name.replace(" Holding", "").replace(" Electronics", "")}</th>`).join("")}</tr></thead><tbody>`;
+  const evs = [...D.events].sort((a, b) => (a.direction === "loosening") - (b.direction === "loosening") || a.date.localeCompare(b.date));
+  let prevDir = null;
+  evs.forEach(e => {
+    if (e.direction !== prevDir) {
+      h += `<tr><td colspan="${cos.length + 1}" style="padding-top:12px"><b>${e.direction === "loosening" ? "Restrictions lifted or suspended" : "New restrictions"}</b></td></tr>`;
+      prevDir = e.direction;
+    }
+    const cells = cos.map(c => {
+      const v = (e.car["CAR[0,+1]"] || {})[c.ticker];
+      if (!v || v[0] == null) return `<td class="v">–</td>`;
+      const col = heatColor(v[0]);
+      return `<td class="v" style="background:${col.bg};color:${col.fg}" title="${c.name}: ${pct(v[0], 2)}, p ${fmtp(v[1])}">${(v[0] * 100).toFixed(1)}</td>`;
+    }).join("");
+    h += `<tr class="ev${e.id === state.ev ? " sel" : ""}${e.confounded ? " conf" : ""}" data-id="${e.id}"><td>${e.date} · ${e.short}</td>${cells}</tr>`;
+  });
+  tbl.innerHTML = h + "</tbody>";
+  tbl.querySelectorAll("tr.ev").forEach(r => r.onclick = () => {
+    state.ev = r.dataset.id; renderEvent(); timeline(); heat();
+    document.getElementById("evhead").scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+}
+
+/* ---------- 5. Robustness ---------- */
+function rob() {
+  const cols = [["all stocks, main", "All stocks, all tightening"], ["all stocks, excl. confounded", "All stocks, excl. confounded"],
+                ["designers, excl. confounded", "Designers, excl. confounded"], ["targeted minus others", "Targeted minus others"]];
+  let h = `<thead><tr><th>Specification</th>${cols.map(c => `<th>${c[1]}</th>`).join("")}</tr></thead><tbody>`;
+  D.robustness.forEach(r => {
+    h += `<tr><td>${r.specification.replace(/^\d+\.\s*/, "")}</td>` + cols.map(([k]) => {
+      const m = r[k + ": mean"] ?? r[k + ": diff"], p = r[k + ": p"];
+      return `<td class="${p < 0.05 ? "p-sig" : ""}">${pct(m, 2)} (${fmtp(p)})</td>`;
+    }).join("") + "</tr>";
+  });
+  document.getElementById("rob").innerHTML = h + "</tbody>";
+}
+
+function renderAll() {
+  kpis(); timeline(); segs(); renderEvent(); avgPath(); heat(); rob();
+  legend("tl-legend", Object.keys(CC).map(k => [CC[k], CLAB[k]]).concat([["var(--mid)", "Faded: confounded by unrelated news"]]));
+  legend("gl1", GROUPS.map(g => [GC[g], GLAB[g]]));
+  legend("gl2", GROUPS.map(g => [GC[g], GLAB[g]]));
+  document.getElementById("gen").textContent = "Results generated on " + D.generated;
+}
+renderAll();
+let rt; window.addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(() => { timeline(); renderEvent(); avgPath(); }, 150); });
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", renderAll);
+</script>
+</body>
+</html>

@@ -1,0 +1,15 @@
+# Raw prices from Yahoo Finance: not redistributed, recreate with scripts/download_prices.py
+data/raw/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Editors and OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
