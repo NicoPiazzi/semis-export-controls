@@ -95,4 +95,4 @@ docs/                        interactive dashboard, published with GitHub Pages
 
 ## Author
 
-Nico Piazzi · BSc Management & Marketing, University of Bologna. This project extends my thesis on ASML and barriers to entry in the lithography market.
+Nicola Piazzi · BSc Management & Marketing, University of Bologna. This project extends my thesis on ASML and barriers to entry in the lithography market.
