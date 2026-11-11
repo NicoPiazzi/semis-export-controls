@@ -79,6 +79,15 @@ th { color: var(--text-secondary); font-weight: 600; }
 .heat .gh th { text-align: center; color: var(--text-primary); border-bottom: none; }
 .scroll { overflow-x: auto; }
 .p-sig { font-weight: 600; }
+.robinfo { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 6px 0 14px; }
+@media (max-width: 760px) { .robinfo { grid-template-columns: 1fr; } }
+.robinfo div { background: var(--surface-2); border-radius: 8px; padding: 10px 12px; font-size: 13.5px; }
+.robinfo b { display: block; font-size: 12px; color: var(--text-muted); font-weight: 600; text-transform: none; margin-bottom: 2px; }
+.verdict { display: inline-block; font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 10px; margin-left: 6px; }
+.verdict.neutral { background: var(--surface-2); color: var(--text-secondary); }
+.verdict.ok { background: #dcefdc; color: #1d5a1d; } .verdict.weak { background: #f6ead0; color: #6b4a07; } .verdict.no { background: #f6d9d9; color: #7a1f1f; }
+@media (prefers-color-scheme: dark) { .verdict.neutral { background: var(--surface-2); color: var(--text-secondary); }
+.verdict.ok { background: #1f3a1f; color: #b9e2b9; } .verdict.weak { background: #3d3115; color: #f0d79a; } .verdict.no { background: #4a2020; color: #f2bcbc; } }
 footer { margin-top: 48px; color: var(--text-muted); font-size: 13px; border-top: 1px solid var(--border); padding-top: 16px; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 </style>
@@ -144,8 +153,15 @@ footer { margin-top: 48px; color: var(--text-muted); font-size: 13px; border-top
 
   <section>
     <h2>5. Do the results survive other choices?</h2>
-    <p class="muted">Each row repeats the analysis changing one methodological choice. Mean in %, p-value in brackets; bold = significant at 5%.</p>
-    <div class="card scroll"><table id="rob"></table></div>
+    <p class="muted">Every study rests on choices someone else might have made differently. Pick a robustness check to redo the analysis with one choice changed, and compare it with the original results. Bold values are significant at 5%.</p>
+    <div class="card">
+      <div class="row"><span class="muted">Robustness check</span><div class="seg" id="robseg"></div></div>
+      <div class="robinfo" id="robinfo"></div>
+      <div class="chart" id="robchart"></div>
+      <div class="legend" id="robleg" style="margin-top:6px"></div>
+      <details style="margin-top:14px"><summary class="muted" style="cursor:pointer">All checks in one table</summary>
+        <div class="scroll" style="margin-top:8px"><table id="rob"></table></div></details>
+    </div>
   </section>
 
   <section>
@@ -188,7 +204,7 @@ const tip = document.getElementById("tip");
 const pct = (v, d = 1) => v == null ? "n/a" : (v >= 0 ? "+" : "") + (v * 100).toFixed(d) + "%";
 const fmtp = p => p == null ? "" : p < 0.001 ? "<0.001" : p.toFixed(3);
 const css = v => getComputedStyle(document.documentElement).getPropertyValue(v.replace(/var\((.*)\)/, "$1")).trim();
-let state = { ev: "E05", win: "CAR[0,+1]", samp: "clean" };
+let state = { ev: "E05", win: "CAR[0,+1]", samp: "clean", rob: 1 };
 
 function el(tag, attrs = {}, parent) {
   const e = document.createElementNS(NS, tag);
@@ -405,6 +421,79 @@ function heat() {
 }
 
 /* ---------- 5. Robustness ---------- */
+const ROB_METRICS = [
+  ["targeted minus others", "Targeted segment minus the other two", "diff"],
+  ["designers, excl. confounded", "Chip designers, excl. confounded", "mean"],
+  ["all stocks, excl. confounded", "All stocks, excl. confounded", "mean"],
+  ["all stocks, main", "All stocks, all 16 tightening events", "mean"],
+];
+const ROB_INFO = [
+  null,
+  ["Beta is set to 1: the expected return is simply the market return, with no estimation.",
+   "Estimated betas can mislead, above all on extreme days such as the tariff crash of April 2025."],
+  ["Alpha and beta are estimated on 120 trading days (about six months) instead of 250.",
+   "A stock's sensitivity to the market changes over time; a more recent window may describe it better."],
+  ["ASML and TSMC are measured through their New York listings, against the S&P 500.",
+   "Amsterdam and Taipei trade at different hours from New York, which complicates the timing of day 0."],
+  ["SMIC, the Chinese manufacturer, is removed from the sample.",
+   "SMIC is the noisiest stock and, as the target of US rules, can react opposite to everyone else."],
+  ["The window starts one day earlier: day -1 to day +1.",
+   "News sometimes leaks the day before the official announcement."],
+  ["The window covers a full week after the announcement: day 0 to day +5.",
+   "Markets may need several days to digest a rule and its consequences."],
+];
+const robVal = (r, k, kind) => r[`${k}: ${kind}`];
+function verdict(base, alt) {
+  if (Math.sign(base.m) !== Math.sign(alt.m)) return ["no", "Reversed"];
+  if (alt.p < 0.05) return ["ok", base.p < 0.05 ? "Holds" : "Stronger"];
+  if (alt.p < 0.10) return ["weak", "Borderline"];
+  return base.p < 0.05 ? ["weak", "Weaker"] : ["neutral", "Not significant, as original"];
+}
+const ROB_SHORT = [null, "Beta = 1", "120-day estimation", "ASML & TSMC in New York", "Without SMIC", "Window -1 to +1", "Window 0 to +5"];
+function robSeg() {
+  const seg = document.getElementById("robseg");
+  seg.innerHTML = D.robustness.slice(1).map((r, i) =>
+    `<button aria-pressed="${i + 1 === state.rob}" data-i="${i + 1}">${ROB_SHORT[i + 1]}</button>`).join("");
+  seg.querySelectorAll("button").forEach(b => b.onclick = () => { state.rob = +b.dataset.i; robSeg(); robChart(); });
+}
+function robChart() {
+  const base = D.robustness[0], alt = D.robustness[state.rob], info = ROB_INFO[state.rob];
+  document.getElementById("robinfo").innerHTML =
+    `<div><b>What changes</b>${info[0]}</div><div><b>Why check it</b>${info[1]}</div>`;
+  const host = document.getElementById("robchart"); host.innerHTML = "";
+  const W = host.clientWidth || 900, narrow = W < 640;
+  const m = { l: narrow ? 10 : 250, r: 190, t: 8, b: 26 }, blockH = narrow ? 96 : 76;
+  const H = m.t + m.b + ROB_METRICS.length * blockH;
+  const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": "Original results compared with the selected robustness check" }, host);
+  const vals = ROB_METRICS.flatMap(([k, , kind]) => [robVal(base, k, kind), robVal(alt, k, kind)]);
+  const lo = Math.min(-0.005, ...vals) * 1.15, hi = Math.max(0.005, ...vals) * 1.15;
+  const x = v => m.l + (v - lo) / (hi - lo) * (W - m.l - m.r);
+  [-0.03, -0.02, -0.01, 0, 0.01].filter(v => v >= lo && v <= hi).forEach(v => {
+    el("line", { x1: x(v), x2: x(v), y1: m.t, y2: H - m.b, stroke: css(v === 0 ? "var(--text-muted)" : "var(--grid)") }, svg);
+    const t = el("text", { x: x(v), y: H - 6, "text-anchor": "middle" }, svg); t.textContent = pct(v, 0);
+  });
+  ROB_METRICS.forEach(([k, label, kind], i) => {
+    const y0 = m.t + i * blockH + (narrow ? 22 : 6);
+    const bm = { m: robVal(base, k, kind), p: base[`${k}: p`] }, am = { m: robVal(alt, k, kind), p: alt[`${k}: p`] };
+    const [cls, txt] = verdict(bm, am);
+    const lab = el("text", { x: narrow ? 10 : m.l - 12, y: narrow ? y0 - 8 : y0 + 22, "text-anchor": narrow ? "start" : "end",
+      style: "fill:" + css("var(--text-primary)") + ";font-size:13px" }, svg);
+    lab.textContent = label;
+    [["Original", bm, "var(--s5)"], ["This check", am, "var(--accent)"]].forEach(([nm, v, c], j) => {
+      const y = y0 + j * 22, x0 = x(0), x1 = x(v.m);
+      el("rect", { x: Math.min(x0, x1), y, width: Math.max(1, Math.abs(x1 - x0)), height: 16, rx: 3, fill: css(c) }, svg);
+      const t = el("text", { x: W - m.r + 10, y: y + 12, style: v.p < 0.05 ? "font-weight:600;fill:" + css("var(--text-primary)") : "" }, svg);
+      t.textContent = `${pct(v.m, 2)}  (p ${fmtp(v.p)})`;
+      const hit = el("rect", { x: 0, y, width: W, height: 18, fill: "transparent" }, svg);
+      hit.addEventListener("mousemove", ev => showTip(`<b>${label}</b><br>${nm}: <b>${pct(v.m, 2)}</b><br>p-value ${fmtp(v.p)}${v.p < 0.05 ? " (significant at 5%)" : ""}`, ev));
+      hit.addEventListener("mouseleave", hideTip);
+    });
+    const vb = el("foreignObject", { x: W - m.r + 10, y: y0 + 42, width: m.r, height: 24 }, svg);
+    vb.innerHTML = `<div xmlns="http://www.w3.org/1999/xhtml"><span class="verdict ${cls}" style="margin-left:0">${txt}</span></div>`;
+  });
+  legend("robleg", [["var(--s5)", "Original analysis"], ["var(--accent)", "With this robustness check"]]);
+}
+
 function rob() {
   const cols = [["all stocks, main", "All stocks, all tightening"], ["all stocks, excl. confounded", "All stocks, excl. confounded"],
                 ["designers, excl. confounded", "Designers, excl. confounded"], ["targeted minus others", "Targeted minus others"]];
@@ -419,14 +508,14 @@ function rob() {
 }
 
 function renderAll() {
-  kpis(); timeline(); segs(); renderEvent(); avgPath(); heat(); rob();
+  kpis(); timeline(); segs(); renderEvent(); avgPath(); heat(); rob(); robSeg(); robChart();
   legend("tl-legend", Object.keys(CC).map(k => [CC[k], CLAB[k]]).concat([["var(--mid)", "Faded: confounded by unrelated news"]]));
   legend("gl1", GROUPS.map(g => [GC[g], GLAB[g]]));
   legend("gl2", GROUPS.map(g => [GC[g], GLAB[g]]));
   document.getElementById("gen").textContent = "Results generated on " + D.generated;
 }
 renderAll();
-let rt; window.addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(() => { timeline(); renderEvent(); avgPath(); }, 150); });
+let rt; window.addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(() => { timeline(); renderEvent(); avgPath(); robChart(); }, 150); });
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change", renderAll);
 </script>
 </body>
