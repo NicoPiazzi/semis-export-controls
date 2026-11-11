@@ -80,6 +80,18 @@ th { color: var(--text-secondary); font-weight: 600; }
 .heat tr.conf td:first-child { color: var(--text-muted); }
 .heat .gh th { text-align: center; color: var(--text-primary); border-bottom: none; }
 .scroll { overflow-x: auto; }
+.tlist { list-style: none; margin: 0; padding: 0; }
+.tlist .yr { font-weight: 600; font-size: 13px; color: var(--text-primary); padding: 12px 0 4px; border-bottom: 1px solid var(--border); }
+.tlist .yr:first-child { padding-top: 0; }
+.tlist button { all: unset; box-sizing: border-box; display: grid; grid-template-columns: 22px 64px 1fr; gap: 10px; align-items: center;
+  width: 100%; padding: 8px 6px; border-radius: 8px; cursor: pointer; font-size: 14px; line-height: 1.35; }
+.tlist button:focus-visible { outline: 2px solid var(--accent); }
+.tlist button.sel { background: var(--surface-2); box-shadow: inset 3px 0 0 var(--text-primary); }
+.tlist button.conf { opacity: .55; }
+.tlist .d { color: var(--text-muted); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.tlist .lift { display: inline-block; font-size: 11px; padding: 0 6px; border-radius: 8px; background: #dcefdc; color: #1d5a1d; margin-left: 6px; vertical-align: 1px; }
+@media (prefers-color-scheme: dark) { .tlist .lift { background: #1f3a1f; color: #b9e2b9; } }
+@media (max-width: 639px) { .wide-only { display: none; } }
 .p-sig { font-weight: 600; }
 .robinfo { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 6px 0 14px; }
 @media (max-width: 760px) { .robinfo { grid-template-columns: 1fr; } }
@@ -107,7 +119,7 @@ footer { margin-top: 48px; color: var(--text-muted); font-size: 13px; border-top
 
   <section>
     <h2>1. Timeline of the announcements</h2>
-    <p class="muted">Above the line: new restrictions. Below: restrictions lifted or suspended. Click an announcement to see how each stock reacted.</p>
+    <p class="muted"><span class="wide-only">Above the line: new restrictions. Below: restrictions lifted or suspended. </span>Click an announcement to see how each stock reacted.</p>
     <div class="card"><div class="chart" id="timeline"></div><div class="legend" id="tl-legend" style="margin-top:6px"></div></div>
   </section>
 
@@ -294,8 +306,41 @@ function flagLegend(id) {
 }
 
 /* ---------- 1. Timeline ---------- */
+function selectEvent(id, scroll) {
+  state.ev = id; renderEvent(); timeline(); heat();
+  if (scroll) document.getElementById("evhead").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+function timelineList(host) {
+  // narrow screens: vertical, chronological list grouped by year
+  const evs = [...D.events].sort((a, b) => a.date.localeCompare(b.date));
+  const ul = document.createElement("ul"); ul.className = "tlist";
+  let year = null;
+  const mon = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  evs.forEach(e => {
+    if (e.date.slice(0, 4) !== year) {
+      year = e.date.slice(0, 4);
+      const li = document.createElement("li"); li.className = "yr"; li.textContent = year; ul.appendChild(li);
+    }
+    const li = document.createElement("li");
+    const b = document.createElement("button");
+    b.className = (e.id === state.ev ? "sel " : "") + (e.confounded ? "conf" : "");
+    b.setAttribute("aria-pressed", e.id === state.ev);
+    const svg = el("svg", { width: 22, height: 22, viewBox: "0 0 22 22", "aria-hidden": "true" });
+    flagCircle(e.country, 11, 11, 10.5, svg);
+    const d = document.createElement("span"); d.className = "d";
+    d.textContent = `${+e.date.slice(8, 10)} ${mon[+e.date.slice(5, 7) - 1]}`;
+    const t = document.createElement("span");
+    const lbl = e.short.replace(/^[A-Z\/-]+:\s*/, "");
+    t.innerHTML = lbl.charAt(0).toUpperCase() + lbl.slice(1) + (e.direction === "loosening" ? '<span class="lift">lifted</span>' : "");
+    b.append(svg, d, t);
+    b.onclick = () => selectEvent(e.id, true);
+    li.appendChild(b); ul.appendChild(li);
+  });
+  host.appendChild(ul);
+}
 function timeline() {
   const host = document.getElementById("timeline"); host.innerHTML = "";
+  if ((host.clientWidth || 900) < 640) return timelineList(host);
   const W = host.clientWidth || 900, m = { l: 20, r: 20 }, R = 12, gap = 2 * R + 6;
   const t0 = new Date("2019-01-01"), t1 = new Date("2026-06-30");
   const x = d => m.l + (new Date(d) - t0) / (t1 - t0) * (W - m.l - m.r);
@@ -325,7 +370,7 @@ function timeline() {
     if (e.confounded) g.setAttribute("opacity", 0.45);
     if (sel) el("circle", { cx: xx, cy: yy, r: R + 4, fill: "none", stroke: css("var(--text-primary)"), "stroke-width": 2 }, g);
     flagCircle(e.country, xx, yy, R, g);
-    const select = () => { state.ev = e.id; renderEvent(); timeline(); heat(); };
+    const select = () => selectEvent(e.id, false);
     g.addEventListener("click", select);
     g.addEventListener("keydown", k => { if (k.key === "Enter" || k.key === " ") { k.preventDefault(); select(); } });
     g.addEventListener("mousemove", ev => showTip(`<b>${e.date}</b><br>${e.short}<br><span class="muted">${e.issuer}${e.confounded ? " · confounded" : ""}</span>`, ev));
