@@ -392,8 +392,8 @@ function renderEvent() {
       <span class="tag">Most exposed: ${e.target}</span>${e.confounded ? '<span class="tag warn">Confounded by unrelated news</span>' : ""}</p>
     <p class="muted" style="margin-bottom:2px"><b>Timing:</b> ${e.timing}</p>
     <p class="muted" style="margin-bottom:2px"><b>Other news nearby:</b> ${e.confounders}</p>
-    <p class="muted"><a href="${e.source}" target="_blank" rel="noopener">Primary source</a> ·
-      <a href="${e.source2}" target="_blank" rel="noopener">Secondary source</a></p>`;
+    <p class="muted"><a href="${e.source}" target="_blank" rel="noopener">Primary source</a>${e.source2 ? ` ·
+      <a href="${e.source2}" target="_blank" rel="noopener">Secondary source</a>` : ""}</p>`;
   bars(e); evPath(e);
 }
 

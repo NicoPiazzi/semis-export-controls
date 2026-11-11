@@ -61,7 +61,7 @@ def main():
             short=e.short_label, direction=e.direction, sample=e.sample,
             target=e.most_exposed_group, timing=e.timing_note, confounders=e.confounders,
             confounded=e.event_id in SEVERE_CONFOUNDERS,
-            source=e.source_primary, source2=e.source_secondary,
+            source=e.source_primary, source2=(e.source_secondary if isinstance(e.source_secondary, str) else ""),
             car=cars, path=paths))
 
     # average path by group across events, for two samples
