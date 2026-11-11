@@ -48,6 +48,8 @@ section { margin-top: 36px; }
 .seg button + button { border-left: none; }
 .seg button[aria-pressed="true"] { background: var(--text-primary); color: var(--bg); border-color: var(--text-primary); }
 .legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 13px; color: var(--text-secondary); }
+.legend span.flagleg::before { display: none; }
+.legend span.flagleg { display: inline-flex; align-items: center; gap: 6px; }
 .legend span::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 2px;
   background: var(--c); margin-right: 6px; vertical-align: -1px; }
 .chart { position: relative; }
@@ -95,7 +97,6 @@ footer { margin-top: 48px; color: var(--text-muted); font-size: 13px; border-top
 <body>
 <main>
   <header>
-    <p class="muted">Event study · 23 announcements · 11 stocks · 2019-2026</p>
     <h1>Chips under control: how semiconductor stocks react to export controls</h1>
     <p class="lede">Since 2019 the US, the Netherlands, Japan and China have used export controls as a weapon in the chip race.
       This project measures how the stock market prices each announcement, separating the reaction to the news
@@ -183,7 +184,7 @@ footer { margin-top: 48px; color: var(--text-muted); font-size: 13px; border-top
   </section>
 
   <footer>
-    <span id="gen"></span> · Code, data and full methodology on
+    Code, data and full methodology on
     <a href="https://github.com/NicoPiazzi/semis-export-controls">GitHub</a>.
   </footer>
 </main>
@@ -238,34 +239,92 @@ function kpis() {
     `<div class="card kpi"><div class="num">${n}</div><div class="lab">${l}</div><div class="sig">${s}</div></div>`).join("");
 }
 
+/* ---------- Flags (simplified, drawn in SVG) ---------- */
+let flagSeq = 0;
+function starPts(cx, cy, R) {
+  const p = [];
+  for (let i = 0; i < 10; i++) {
+    const a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? R * 0.4 : R;
+    p.push(`${cx + rr * Math.cos(a)},${cy + rr * Math.sin(a)}`);
+  }
+  return p.join(" ");
+}
+function drawFlag(code, x0, y0, w, h, parent) {
+  if (code === "US") {
+    for (let i = 0; i < 7; i++) el("rect", { x: x0, y: y0 + i * h / 7, width: w, height: h / 7 + 0.3, fill: i % 2 ? "#ffffff" : "#b22234" }, parent);
+    el("rect", { x: x0, y: y0, width: w * 0.5, height: h * 4 / 7, fill: "#3c3b6e" }, parent);
+  } else if (code === "NL") {
+    ["#ae1c28", "#ffffff", "#21468b"].forEach((c, i) => el("rect", { x: x0, y: y0 + i * h / 3, width: w, height: h / 3 + 0.3, fill: c }, parent));
+  } else if (code === "JP") {
+    el("rect", { x: x0, y: y0, width: w, height: h, fill: "#ffffff" }, parent);
+    el("circle", { cx: x0 + w / 2, cy: y0 + h / 2, r: w * 0.3, fill: "#bc002d" }, parent);
+  } else if (code === "CN") {
+    el("rect", { x: x0, y: y0, width: w, height: h, fill: "#de2910" }, parent);
+    el("polygon", { points: starPts(x0 + w * 0.32, y0 + h * 0.36, w * 0.22), fill: "#ffde00" }, parent);
+  }
+}
+function flagCircle(code, cx, cy, r, parent, opts = {}) {
+  const svg = parent.ownerSVGElement || parent;
+  let defs = svg.querySelector("defs") || el("defs", {}, svg);
+  const id = "fc" + (++flagSeq);
+  const cp = el("clipPath", { id }, defs); el("circle", { cx, cy, r }, cp);
+  const g = el("g", { "clip-path": `url(#${id})` }, parent);
+  const x0 = cx - r, y0 = cy - r, d = 2 * r;
+  if (code === "US/CN") {
+    drawFlag("US", x0, y0, d, d, g);
+    const cp2 = el("clipPath", { id: id + "r" }, defs); el("rect", { x: cx, y: y0, width: r, height: d }, cp2);
+    const g2 = el("g", { "clip-path": `url(#${id}r)` }, g);
+    el("rect", { x: x0, y: y0, width: d, height: d, fill: "#de2910" }, g2);
+    el("polygon", { points: starPts(cx + r * 0.45, cy - r * 0.25, r * 0.38), fill: "#ffde00" }, g2);
+    el("line", { x1: cx, x2: cx, y1: y0, y2: y0 + d, stroke: "#ffffff", "stroke-width": 1 }, g);
+  } else drawFlag(code, x0, y0, d, d, g);
+  el("circle", { cx, cy, r: r - 0.5, fill: "none", stroke: opts.stroke || "rgba(0,0,0,.35)", "stroke-width": opts.sw || 1 }, parent);
+}
+function flagLegend(id) {
+  const host = document.getElementById(id); host.innerHTML = "";
+  Object.keys(CLAB).forEach(k => {
+    const span = document.createElement("span"); span.className = "flagleg";
+    const svg = el("svg", { width: 16, height: 16, viewBox: "0 0 16 16", "aria-hidden": "true" }, span);
+    flagCircle(k, 8, 8, 7.5, svg);
+    span.appendChild(document.createTextNode(CLAB[k])); host.appendChild(span);
+  });
+  const f = document.createElement("span"); f.className = "flagleg";
+  f.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7" fill="none" stroke="currentColor" stroke-dasharray="2 2"/></svg>Faded: confounded by unrelated news';
+  host.appendChild(f);
+}
+
 /* ---------- 1. Timeline ---------- */
 function timeline() {
   const host = document.getElementById("timeline"); host.innerHTML = "";
-  const W = host.clientWidth || 900, H = 230, m = { l: 20, r: 20 }, y0 = 125;
-  const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": "Timeline of export-control announcements" }, host);
+  const W = host.clientWidth || 900, m = { l: 20, r: 20 }, R = 12, gap = 2 * R + 6;
   const t0 = new Date("2019-01-01"), t1 = new Date("2026-06-30");
   const x = d => m.l + (new Date(d) - t0) / (t1 - t0) * (W - m.l - m.r);
+  // first pass: assign each announcement to a lane so that flags never overlap
+  const lanes = { up: [], down: [] };
+  const evs = [...D.events].sort((a, b) => a.date.localeCompare(b.date)).map(e => {
+    const dir = e.direction === "loosening" ? "down" : "up", xx = x(e.date);
+    let lane = 0; while (lanes[dir][lane] != null && xx - lanes[dir][lane] < gap) lane++;
+    lanes[dir][lane] = xx;
+    return { e, dir, xx, lane };
+  });
+  const nUp = lanes.up.length, nDown = lanes.down.length;
+  const y0 = 34 + (nUp - 1) * gap + R + 22;              // axis position
+  const H = y0 + 40 + (nDown - 1) * gap + R + 28;
+  const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": "Timeline of export-control announcements" }, host);
   el("line", { x1: m.l, x2: W - m.r, y1: y0, y2: y0, stroke: css("var(--border)"), "stroke-width": 1.5 }, svg);
   for (let y = 2019; y <= 2026; y++) {
     const xx = x(`${y}-01-01`);
     el("line", { x1: xx, x2: xx, y1: y0 - 4, y2: y0 + 4, stroke: css("var(--text-muted)") }, svg);
     const t = el("text", { x: xx + 3, y: y0 + 18 }, svg); t.textContent = y;
   }
-  const lanes = { up: [], down: [] }, R = 11, gap = 2 * R + 4;
-  const evs = [...D.events].sort((a, b) => a.date.localeCompare(b.date));
-  evs.forEach(e => {
-    const dir = e.direction === "loosening" ? "down" : "up", xx = x(e.date);
-    let lane = 0; while (lanes[dir][lane] != null && xx - lanes[dir][lane] < gap) lane++;
-    lanes[dir][lane] = xx;
+  evs.forEach(({ e, dir, xx, lane }) => {
     const yy = dir === "up" ? y0 - 28 - lane * gap : y0 + 40 + lane * gap;
     el("line", { x1: xx, x2: xx, y1: y0, y2: yy + (dir === "up" ? R : -R), stroke: css("var(--border)") }, svg);
     const g = el("g", { tabindex: 0, role: "button", "aria-label": `${e.date} ${e.short}`, style: "cursor:pointer" }, svg);
     const sel = e.id === state.ev;
-    el("circle", { cx: xx, cy: yy, r: sel ? R + 2 : R, fill: css(CC[e.country]),
-      stroke: sel ? css("var(--text-primary)") : css("var(--surface-1)"), "stroke-width": sel ? 2.5 : 2,
-      opacity: e.confounded ? 0.55 : 1 }, g);
-    const lab = el("text", { x: xx, y: yy + 4, "text-anchor": "middle", style: "font-size:9px;font-weight:600;fill:#fff" }, g);
-    lab.textContent = e.country === "US/CN" ? "" : e.country;
+    if (e.confounded) g.setAttribute("opacity", 0.45);
+    if (sel) el("circle", { cx: xx, cy: yy, r: R + 4, fill: "none", stroke: css("var(--text-primary)"), "stroke-width": 2 }, g);
+    flagCircle(e.country, xx, yy, R, g);
     const select = () => { state.ev = e.id; renderEvent(); timeline(); heat(); };
     g.addEventListener("click", select);
     g.addEventListener("keydown", k => { if (k.key === "Enter" || k.key === " ") { k.preventDefault(); select(); } });
@@ -509,10 +568,9 @@ function rob() {
 
 function renderAll() {
   kpis(); timeline(); segs(); renderEvent(); avgPath(); heat(); rob(); robSeg(); robChart();
-  legend("tl-legend", Object.keys(CC).map(k => [CC[k], CLAB[k]]).concat([["var(--mid)", "Faded: confounded by unrelated news"]]));
+  flagLegend("tl-legend");
   legend("gl1", GROUPS.map(g => [GC[g], GLAB[g]]));
   legend("gl2", GROUPS.map(g => [GC[g], GLAB[g]]));
-  document.getElementById("gen").textContent = "Results generated on " + D.generated;
 }
 renderAll();
 let rt; window.addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(() => { timeline(); renderEvent(); avgPath(); robChart(); }, 150); });
